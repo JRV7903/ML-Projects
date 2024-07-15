@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 #include <mlpack/core.hpp>
 #include <mlpack/methods/linear_regression/linear_regression.hpp>
+#include <mlpack/methods/ridge_regression/ridge_regression.hpp>
 
 using namespace mlpack;
 using namespace mlpack::regression;
@@ -18,14 +19,14 @@ void fetchData(const std::string& url, const std::string& filename) {
     std::string readBuffer;
 
     curl = curl_easy_init();
-    if(curl) {
+    if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         res = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
 
-        if(res == CURLE_OK) {
+        if (res == CURLE_OK) {
             std::ofstream outFile(filename);
             outFile << readBuffer;
             outFile.close();
@@ -40,10 +41,9 @@ void preprocessData(const std::string& inputFile, const std::string& outputFile)
     std::ofstream outFile(outputFile);
 
     std::string line;
-    std::getline(inFile, line);
+    std::getline(inFile, line); // Skip the header
 
     while (std::getline(inFile, line)) {
-        // Replace commas with spaces
         for (char& c : line) {
             if (c == ',') {
                 c = ' ';
@@ -63,13 +63,13 @@ void trainModel(const std::string& filename) {
     arma::rowvec responses = dataset.row(dataset.n_rows - 1);
     dataset.shed_row(dataset.n_rows - 1);
 
-    LinearRegression lr(dataset, responses);
+    RidgeRegression lr(dataset, responses, 0.1); // L2 regularization with lambda = 0.1
 
-    data::Save("linear_regression_model.xml", "model", lr);
+    data::Save("ridge_regression_model.xml", "model", lr);
 }
 
 void predict(const std::string& modelFile, const arma::mat& testSet) {
-    LinearRegression lr;
+    RidgeRegression lr;
     data::Load(modelFile, "model", lr);
 
     arma::rowvec predictions;
@@ -93,7 +93,7 @@ int main() {
 
     arma::mat testSet;
     data::Load(processedFilename, testSet, true);
-    predict("linear_regression_model.xml", testSet);
+    predict("ridge_regression_model.xml", testSet);
 
     return 0;
 }
